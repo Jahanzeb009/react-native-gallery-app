@@ -3,12 +3,16 @@ import { ViewProps, ViewStyle } from "react-native";
 import { AnimatedProps, SharedValue } from "react-native-reanimated";
 
 type topBarProps = {
+    visible: boolean;
     style?: ViewStyle;
+    bgColor?: string;
     children: React.ReactNode;
 } & AnimatedProps<ViewProps>;
 
 type bottomBarProps = {
+    visible: boolean;
     style?: ViewStyle;
+    bgColor?: string;
     children: React.ReactNode;
 } & AnimatedProps<ViewProps>;
 

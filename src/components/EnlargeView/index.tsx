@@ -5,6 +5,7 @@ import {
   GestureResponderEvent,
   Pressable,
   StyleSheet,
+  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -21,6 +22,10 @@ import Animated, {
 import { TopBar } from './topBar';
 import { BottomBar } from './bottomBar';
 import { BGContainer } from './bgContainer';
+import { Image } from 'expo-image';
+import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import { TouchableIcon } from '../TouchableIcon';
 
 type props = {
   imageSize: number;
@@ -48,7 +53,7 @@ export const EnlargeView = ({
   const [hideMenus, setHideMenus] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
-  const IMAGE_HEIGHT = height / 3;
+  const IMAGE_HEIGHT = height / 1.5;
   const defalutTopValue = selectedImage.pageY - selectedImage.locationY;
   const defalutLeftValue = selectedImage.pageX - selectedImage.locationX;
   const IMAGE_MARGIN_FROM_TOP = (height - IMAGE_HEIGHT) / 2;
@@ -60,7 +65,12 @@ export const EnlargeView = ({
   const scaleInitial = useSharedValue(1);
   const pinchGesture = Gesture.Pinch()
     .onBegin((e) => (scaleInitial.value = scale.value))
-    .onUpdate((e) => (scale.value = scaleInitial.value * e.scale))
+    .onUpdate((e) => {
+      const newScale = scaleInitial.value * e.scale;
+      if (newScale >= 0.7) {
+        scale.value = scaleInitial.value * e.scale;
+      }
+    })
     .onEnd((e) => (scale.value = withTiming(Math.max(1, Math.min(scale.value, 3)))));
 
   const flingGesture = Gesture.Fling()
@@ -92,7 +102,7 @@ export const EnlargeView = ({
       top: withTiming(
         interpolate(
           updateValue.value.t,
-          [0, Math.min(defalutTopValue, IMAGE_HEIGHT)],
+          [0, Math.min(IMAGE_MARGIN_FROM_TOP, defalutTopValue)],
           [defalutTopValue, IMAGE_MARGIN_FROM_TOP],
           Extrapolation.CLAMP
         )
@@ -149,43 +159,59 @@ export const EnlargeView = ({
   if (selectedImage)
     return (
       <>
+        <StatusBar style="inverted" />
         <GestureDetector gesture={flingGesture}>
           <BGContainer sharedValue={updateValue}>
             <GestureDetector gesture={composedGesture}>
-              <Animated.Image
-                source={{ uri: selectedImage.uri }}
+              <Animated.View
                 // entering={FadeIn.duration(10)}
-                exiting={FadeOut.duration(50)}
+                // exiting={FadeOut.duration(50)}
                 style={[
                   {
                     position: 'absolute',
                     alignItems: 'center',
+                    backgroundColor: 'blue', //selectedImage.color,
                     justifyContent: 'center',
-                    backgroundColor: selectedImage.color,
                   },
                   smallToLargeStyle,
-                ]}
-              />
+                ]}>
+                <Image
+                  transition={{ duration: 10, effect: 'curl-down', timing: 'linear' }}
+                  source={selectedImage.uri}
+                  style={{ width: '100%', height: '100%' }}
+                  contentFit="contain"
+                />
+              </Animated.View>
             </GestureDetector>
           </BGContainer>
         </GestureDetector>
         {isReady && (
           <View style={StyleSheet.absoluteFillObject}>
-            {!hideMenus && (
-              <TopBar>
-                <Button onPress={() => {}} title="edit" />
-                <Button onPress={() => {}} title="info" />
-                <Button onPress={() => {}} title="delete" />
-              </TopBar>
-            )}
+            <TopBar visible={!hideMenus}>
+              <TouchableIcon
+                onPress={onCloseView}
+                icon={<MaterialIcons name="arrow-back" size={24} color="white" />}
+              />
+              <TouchableIcon
+                onPress={onCloseView}
+                icon={<MaterialCommunityIcons name="close" size={24} color="white" />}
+              />
+            </TopBar>
 
-            {!hideMenus && (
-              <BottomBar>
-                <Button onPress={() => {}} title="delete" />
-                <Button onPress={() => {}} title="edit" />
-                <Button onPress={() => {}} title="info" />
-              </BottomBar>
-            )}
+            <BottomBar visible={!hideMenus}>
+              <TouchableIcon
+                onPress={() => {}}
+                icon={<MaterialIcons name="info-outline" size={24} color="white" />}
+              />
+              <TouchableIcon
+                onPress={() => {}}
+                icon={<MaterialIcons name="edit" size={24} color="white" />}
+              />
+              <TouchableIcon
+                onPress={() => {}}
+                icon={<MaterialCommunityIcons name="delete-outline" size={24} color="white" />}
+              />
+            </BottomBar>
           </View>
         )}
       </>

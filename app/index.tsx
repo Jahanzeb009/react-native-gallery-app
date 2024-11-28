@@ -6,16 +6,27 @@ import {
   Button,
   TouchableOpacity,
   Pressable,
+  GestureResponderEvent,
+  ColorValue,
+  useWindowDimensions,
 } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
+import { EnlargeView } from '~/src/components/EnlargeView';
+import { SafeAreaView } from 'react-native-safe-area-context';
 const Home = () => {
   const [albums, setAlbums] = useState<MediaLibrary.Asset[] | null>(null);
   const [permissionResponse, requestPermission] = MediaLibrary.usePermissions();
-
+  const [selectedImage, setSelectedImage] = useState<
+    (GestureResponderEvent['nativeEvent'] & { color: ColorValue; uri: string }) | null
+  >(null);
   const [isAppReady, setIsAppReady] = useState(false);
-  // console.log(albums && albums[0]);
+
+  const { width, height } = useWindowDimensions();
+
+  const IMAGE_SIZE = width * 0.25;
+
   useEffect(() => {
     if (permissionResponse?.status === 'granted') {
       setIsAppReady(true);
@@ -43,7 +54,7 @@ const Home = () => {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1 }}>
       <Button title="getAlbums" onPress={getAlbums} />
       <FlatList
         data={albums}
@@ -55,24 +66,34 @@ const Home = () => {
             <Pressable
               key={index}
               style={{
-                width: '25%',
+                width: IMAGE_SIZE,
                 aspectRatio: 1,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
-              onPress={(e)=>{
-console.log(e.nativeEvent)
-              }}
-              >
-              <Image
-                source={item.uri}
-                style={{ width: '98%', height: '98%', resizeMode: 'cover' }}
-              />
+              onPress={(e) => {
+                setSelectedImage({
+                  ...e.nativeEvent,
+                  color: '#000',
+                  uri: item.uri,
+                });
+              }}>
+              <Image source={item.uri} style={{ width: '98%', height: '98%' }} contentFit="cover" />
             </Pressable>
           );
         }}
       />
-    </View>
+      {selectedImage && (
+        <EnlargeView
+          imageSize={IMAGE_SIZE}
+          onClose={() => {
+            setSelectedImage(null);
+          }}
+          selectedImage={selectedImage}
+          setSelectedImage={setSelectedImage}
+        />
+      )}
+    </SafeAreaView>
   );
 };
 

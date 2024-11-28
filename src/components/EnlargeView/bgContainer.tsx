@@ -3,7 +3,7 @@ import { bgContainerProps } from './types';
 import Animated, { interpolateColor, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
 export const BGContainer = ({ sharedValue, children }: bgContainerProps) => {
-  const { width, height } = useWindowDimensions();
+  // const { width, height } = useWindowDimensions();
 
   const bgStyle = useAnimatedStyle(() => ({
     backgroundColor: withTiming(

@@ -1,14 +1,31 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bottomBarProps } from './types';
-import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
-import { View } from 'react-native';
 
-export const BottomBar = ({ children, bgColor, visible, style, ...props }: bottomBarProps) => {
+import Animated, {
+  AnimatedProps,
+  FadeInDown,
+  FadeOutDown,
+  SharedValue,
+} from 'react-native-reanimated';
+import { View, ViewProps, ViewStyle } from 'react-native';
+import { bottomBarProps } from '../EnlargeView/types';
+
+export const BottomBar = ({
+  children,
+  bgColor,
+  visible,
+  style,
+  ...props
+}: {
+  visible: boolean;
+  style?: ViewStyle;
+  bgColor?: string;
+  children: React.ReactNode;
+} & AnimatedProps<ViewProps>) => {
   const inset = useSafeAreaInsets();
   if (!visible) return null;
   return (
     <Animated.View
-      // entering={FadeInDown}
+      entering={FadeInDown}
       exiting={FadeOutDown.duration(700)}
       style={{
         bottom: 0,

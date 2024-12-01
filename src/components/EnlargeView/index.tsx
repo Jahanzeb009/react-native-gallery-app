@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Button,
   ColorValue,
   GestureResponderEvent,
   Pressable,
   StyleSheet,
+  Text,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -15,43 +17,36 @@ import Animated, {
   FadeOut,
   interpolate,
   interpolateColor,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { TopBar } from './topBar';
 import { BottomBar } from './bottomBar';
-import { BGContainer } from './bgContainer';
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { TouchableIcon } from '../TouchableIcon';
-
-type props = {
-  imageSize: number;
-  selectedImage: GestureResponderEvent['nativeEvent'] & {
-    color: ColorValue;
-    uri: string;
-  };
-  setSelectedImage: any;
-  onClose: () => void;
-  duration?: number;
-};
-
-// const CloseEnlargeContainer = ({ onPress }) => {
-//   return <Pressable onPress={onPress} style={{ width: '100%', height: '100%' }} />;
-// };
+import { enlargeViewProps } from '~/src/types';
+import { AssetInfo, getAssetInfoAsync } from 'expo-media-library';
+import EnlargeViewSheet from './enlargeViewSheet';
+import BottomSheet, { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { BGContainer } from './bgContainer';
 
 export const EnlargeView = ({
-  imageSize,
   onClose,
+  imageSize,
   selectedImage,
-  setSelectedImage,
   duration = 500,
-}: props) => {
+}: enlargeViewProps) => {
   const { width, height } = useWindowDimensions();
   const [hideMenus, setHideMenus] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [enablePanGesture, setEnablePanGesture] = useState(false);
+  const [imageDetails, setImageDetails] = useState<AssetInfo>();
+
+  const bottomSheetRef = useRef<BottomSheetModal>(null);
 
   const IMAGE_HEIGHT = height / 1.5;
   const defalutTopValue = selectedImage.pageY - selectedImage.locationY;
@@ -59,7 +54,7 @@ export const EnlargeView = ({
   const IMAGE_MARGIN_FROM_TOP = (height - IMAGE_HEIGHT) / 2;
 
   const updateValue = useSharedValue({ w: 0, h: 0, t: 0, l: 0 });
-  // const updateInitialValue = useSharedValue({ w: 0, h: 0, t: 0, l: 0 });
+  const updateInitialValue = useSharedValue({ w: 0, h: 0, t: 0, l: 0 });
 
   const scale = useSharedValue(1);
   const scaleInitial = useSharedValue(1);
@@ -71,19 +66,56 @@ export const EnlargeView = ({
         scale.value = scaleInitial.value * e.scale;
       }
     })
-    .onEnd((e) => (scale.value = withTiming(Math.max(1, Math.min(scale.value, 3)))));
+    .onEnd((e) => {
+      scale.value = withTiming(Math.max(1, Math.min(scale.value, 3)));
+    });
 
   const flingGesture = Gesture.Fling()
-    .direction(Directions.DOWN | Directions.UP)
+    .enabled(!enablePanGesture && !imageDetails)
+    .direction(Directions.DOWN)
     .onEnd(() => onCloseView())
     .runOnJS(true);
 
-  const tapGesture = Gesture.Tap()
+  const singleTapGesture = Gesture.Tap()
     .numberOfTaps(1)
-    .onStart(() => setHideMenus((pre) => !pre))
+    .onStart(() => {
+      setHideMenus((pre) => !pre);
+    })
     .runOnJS(true);
 
-  const composedGesture = Gesture.Race(tapGesture, pinchGesture);
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onStart(() => {
+      if (scale.value >= 2) {
+        updateValue.value = withTiming({
+          ...updateValue.value,
+          t: IMAGE_MARGIN_FROM_TOP,
+        });
+        scale.value = withTiming(1);
+        runOnJS(setEnablePanGesture)(false);
+      } else {
+        scale.value = withTiming(2);
+        runOnJS(setEnablePanGesture)(true);
+      }
+    });
+
+  const panGesture = Gesture.Pan()
+    .enabled(enablePanGesture)
+    .onBegin((e) => {
+      updateInitialValue.value = { ...updateValue.value };
+    })
+    .onUpdate((e) => {
+      updateValue.value = {
+        h: IMAGE_HEIGHT,
+        w: width,
+        t: e.translationY + updateInitialValue.value.t,
+        l: defalutLeftValue,
+      };
+    });
+
+  const componseTapGestures = Gesture.Exclusive(doubleTapGesture, singleTapGesture);
+
+  const composedGesture = Gesture.Race(componseTapGestures, panGesture, pinchGesture);
 
   const smallToLargeStyle = useAnimatedStyle(() => {
     return {
@@ -102,10 +134,11 @@ export const EnlargeView = ({
       top: withTiming(
         interpolate(
           updateValue.value.t,
-          [0, Math.min(IMAGE_MARGIN_FROM_TOP, defalutTopValue)],
-          [defalutTopValue, IMAGE_MARGIN_FROM_TOP],
+          [0, Math.min(updateValue.value.t, defalutTopValue)],
+          [defalutTopValue, updateValue.value.t],
           Extrapolation.CLAMP
-        )
+        ),
+        { duration: isReady ? 0 : 300 }
       ),
       left: withTiming(
         interpolate(
@@ -126,6 +159,7 @@ export const EnlargeView = ({
       l: defalutLeftValue,
     };
     return () => {
+      scale.value = 1;
       updateValue.value = { w: 0, h: 0, l: 0, t: 0 };
     };
   }, []);
@@ -139,6 +173,7 @@ export const EnlargeView = ({
   }, [selectedImage]);
 
   const onCloseView = () => {
+    setIsReady(false);
     scale.value = 1;
     updateValue.value = {
       w: 0,
@@ -146,7 +181,6 @@ export const EnlargeView = ({
       t: 0,
       l: 0,
     };
-    setIsReady(false);
 
     setTimeout(
       () => {
@@ -154,6 +188,15 @@ export const EnlargeView = ({
       },
       scale.value > 1 ? duration : duration / 2
     );
+  };
+
+  const getAssetInfo = async () => {
+    const details = await getAssetInfoAsync(selectedImage.id);
+
+    setImageDetails(details);
+
+    // Alert.alert(JSON.stringify(details));
+    bottomSheetRef.current?.present();
   };
 
   if (selectedImage)
@@ -170,7 +213,7 @@ export const EnlargeView = ({
                   {
                     position: 'absolute',
                     alignItems: 'center',
-                    backgroundColor: 'blue', //selectedImage.color,
+                    backgroundColor: 'black',
                     justifyContent: 'center',
                   },
                   smallToLargeStyle,
@@ -192,6 +235,8 @@ export const EnlargeView = ({
                 onPress={onCloseView}
                 icon={<MaterialIcons name="arrow-back" size={24} color="white" />}
               />
+
+              <Text style={{ color: 'white' }}>{selectedImage?.filename.split('.')[0]}</Text>
               <TouchableIcon
                 onPress={onCloseView}
                 icon={<MaterialCommunityIcons name="close" size={24} color="white" />}
@@ -200,7 +245,7 @@ export const EnlargeView = ({
 
             <BottomBar visible={!hideMenus}>
               <TouchableIcon
-                onPress={() => {}}
+                onPress={getAssetInfo}
                 icon={<MaterialIcons name="info-outline" size={24} color="white" />}
               />
               <TouchableIcon
@@ -214,6 +259,7 @@ export const EnlargeView = ({
             </BottomBar>
           </View>
         )}
+        <EnlargeViewSheet ref={bottomSheetRef} data={imageDetails as AssetInfo} />
       </>
     );
 };

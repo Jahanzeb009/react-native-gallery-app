@@ -6,6 +6,8 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from 'react-native-reanimated';
+import { bgContainerProps } from '../EnlargeView/types';
+import { DURATION } from './utils';
 
 export const BGContainer = ({
   sharedValue,

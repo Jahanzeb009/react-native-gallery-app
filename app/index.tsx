@@ -1,21 +1,20 @@
 import {
   View,
   Text,
-  ActivityIndicator,
   FlatList,
-  Button,
-  TouchableOpacity,
   Pressable,
-  GestureResponderEvent,
-  ColorValue,
+  ActivityIndicator,
   useWindowDimensions,
+  GestureResponderEvent,
 } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import * as MediaLibrary from 'expo-media-library';
-import { Image } from 'expo-image';
-import { EnlargeView } from '~/src/components/EnlargeView';
+import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, router } from 'expo-router';
+import { router, useGlobalSearchParams } from 'expo-router';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import CustomImage from '~/src/components/CustomImage';
+
 const Home = () => {
   const [localAssets, setLocalAssets] = useState<MediaLibrary.Asset[] | null>(null);
   const [localAssetsInfo, setLocalAssetsInfo] = useState<{
@@ -24,10 +23,20 @@ const Home = () => {
     totalCount: number;
   }>();
   const [permissionResponse, requestPermission] = MediaLibrary.usePermissions();
-  const [selectedImage, setSelectedImage] = useState<
-    (GestureResponderEvent['nativeEvent'] & MediaLibrary.Asset) | null
-  >(null);
   const [isAppReady, setIsAppReady] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  const { reset } = useGlobalSearchParams();
+
+  const resetIndex = () => {
+    setSelectedIndex(null);
+  };
+
+  useEffect(() => {
+    if (reset === 'true') {
+      resetIndex();
+    }
+  }, [reset]);
 
   const { width, height } = useWindowDimensions();
 
@@ -45,6 +54,7 @@ const Home = () => {
   const getAlbums = async () => {
     const res = await MediaLibrary.getAssetsAsync({
       after: localAssetsInfo?.nextPageId,
+      first: 40,
     });
     if (res) {
       setLocalAssets(
@@ -68,10 +78,10 @@ const Home = () => {
 
   const onPress = (
     index: number,
-    layout: { x: number; y: number; width: number; height: number },
+    layout: { x: number; y: number; imgInitialWidth: number; imgInitialHeight: number },
     item: MediaLibrary.Asset
   ) => {
-    // Pass shared values via navigation params
+    setSelectedIndex(index);
     router.navigate({
       pathname: '/imageViewer',
       params: {
@@ -79,62 +89,74 @@ const Home = () => {
         ...item,
         x: layout.x,
         y: layout.y,
-        width: layout.width,
-        height: layout.height,
+        imgInitialWidth: layout.imgInitialWidth,
+        imgInitialHeight: layout.imgInitialHeight,
       },
     });
   };
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      {/* <Link href={'/(test)'}>Test</Link> */}
-
       <FlatList
-        data={localAssets}
         numColumns={4}
-        // columnWrapperStyle={{ gap: 5 }}
-        // contentContainerStyle={{ gap: 5 }}
+        data={localAssets}
         onEndReached={getAlbums}
         onEndReachedThreshold={1}
         renderItem={({ item, index }) => {
           return (
-            <Pressable
-              key={index}
-              style={{
-                width: IMAGE_SIZE,
-                aspectRatio: 1,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onPress={async (e) => {
+            <RenderImage
+              imageSize={IMAGE_SIZE}
+              index={index}
+              item={item}
+              selectedIndex={selectedIndex}
+              onPress={(e) => {
                 e.target.measure((x, y, width, height, pageX, pageY) => {
-                  onPress(index, { x: pageX, y: pageY, width, height }, item);
+                  onPress(
+                    index,
+                    { x: pageX, y: pageY, imgInitialWidth: width, imgInitialHeight: height },
+                    item
+                  );
                 });
-
-                // setSelectedImage({
-                //   ...e.nativeEvent,
-                //   ...item,
-                // });
-              }}>
-              <Image source={item.uri} style={{ width: '98%', height: '98%' }} contentFit="cover" />
-            </Pressable>
+              }}
+            />
           );
         }}
       />
 
       <Text style={{ textAlign: 'center' }}>Total Image: {localAssetsInfo?.totalCount}</Text>
-
-      {/* {selectedImage && (
-        <EnlargeView
-          imageSize={IMAGE_SIZE}
-          onClose={() => {
-            setSelectedImage(null);
-          }}
-          selectedImage={selectedImage}
-        />
-      )} */}
     </SafeAreaView>
   );
 };
 
 export default Home;
+
+const RenderImage = ({
+  item,
+  index,
+  onPress,
+  imageSize,
+  selectedIndex,
+}: {
+  index: number;
+  imageSize: number;
+  item: MediaLibrary.Asset;
+  selectedIndex: number | null;
+  onPress: (e: GestureResponderEvent) => void;
+}) => {
+  return (
+    <Animated.View
+      key={index}
+      entering={FadeIn}
+      style={{
+        aspectRatio: 1,
+        width: imageSize,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: selectedIndex === index ? 0 : 1,
+      }}>
+      <Pressable style={{ width: '100%', height: '100%' }} onPress={onPress}>
+        <CustomImage uri={item.uri} resizeMode="cover" width={'98%'} height={'98%'} />
+      </Pressable>
+    </Animated.View>
+  );
+};

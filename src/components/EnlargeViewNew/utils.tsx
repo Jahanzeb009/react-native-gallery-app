@@ -1,2 +1,2 @@
-const DURATION = 200;
+const DURATION = 300;
 export { DURATION };

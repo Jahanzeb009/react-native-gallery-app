@@ -1,19 +1,20 @@
 import { View, Text, Button, ActivityIndicator } from 'react-native';
 import React, { Children, useEffect, useState } from 'react';
 import MapView, { Marker } from 'react-native-maps';
-import { Stack, useGlobalSearchParams } from 'expo-router';
+import { router, Stack, useGlobalSearchParams } from 'expo-router';
 import { AssetInfo, getAssetInfoAsync } from 'expo-media-library';
 
 const ImageDetailModal = () => {
   // @ts-ignore
   const { id } = useGlobalSearchParams<{ id: string }>();
 
-  const [data, setdata] = useState<AssetInfo>();
+  const [data, setData] = useState<AssetInfo>();
   const [isReady, setIsReady] = useState(false);
 
   const getData = async () => {
     const details = await getAssetInfoAsync(id);
-    setdata(details);
+    console.log('asd', details.localUri);
+    setData(details);
     setTimeout(() => {
       setIsReady(true);
     }, 800);
@@ -46,6 +47,8 @@ const ImageDetailModal = () => {
     );
   };
 
+  console.log(data?.localUri)
+
   if (!isReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -57,6 +60,7 @@ const ImageDetailModal = () => {
   return (
     <View style={{ flex: 1, gap: 30, padding: 10, backgroundColor: 'white' }}>
       <Stack.Screen options={{ title: data?.filename }} />
+      <Button title="back" onPress={() => router.back()} />
 
       <Container>
         <Text style={{ fontWeight: '600' }}>{getDate()}</Text>

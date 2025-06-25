@@ -20,7 +20,7 @@ export const BGContainer = ({
 
   const bgStyle = useAnimatedStyle(() => ({
     // @ts-ignore
-    backgroundColor: interpolateColor(sharedValue.value, [0, 1], ['transparent', 'black']),
+    backgroundColor: interpolateColor(sharedValue.value, [0, 100], ['transparent', 'black']),
   }));
   return (
     <Animated.View
